@@ -29,12 +29,27 @@ function asyncReducer(state, action) {
 
 
 function useAsync(initialState) {
-  const [state, dispatch] = React.useReducer(asyncReducer, {
+  const [state, unsafeDispatch] = React.useReducer(asyncReducer, {
     status: 'idle',
     data: null,
     error: null,
     ...initialState
   })
+  const isMountedRef = React.useRef(false)
+
+  React.useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  })
+
+  const dispatch = React.useCallback((...args) => {
+    if (isMountedRef.current) {
+      unsafeDispatch(...args)
+    }
+  }, [])
+
   const run = React.useCallback((promise) => {
     dispatch({type: 'pending'})
     promise.then(
