@@ -27,6 +27,22 @@ function asyncReducer(state, action) {
   }
 }
 
+function useSafeDispatch(dispatch) {
+  const isMountedRef = React.useRef(false)
+
+  React.useLayoutEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  })
+
+  return React.useCallback((...args) => {
+    if (isMountedRef.current) {
+      dispatch(...args)
+    }
+  }, [dispatch])
+}
 
 function useAsync(initialState) {
   const [state, unsafeDispatch] = React.useReducer(asyncReducer, {
@@ -35,20 +51,7 @@ function useAsync(initialState) {
     error: null,
     ...initialState
   })
-  const isMountedRef = React.useRef(false)
-
-  React.useEffect(() => {
-    isMountedRef.current = true
-    return () => {
-      isMountedRef.current = false
-    }
-  })
-
-  const dispatch = React.useCallback((...args) => {
-    if (isMountedRef.current) {
-      unsafeDispatch(...args)
-    }
-  }, [])
+  const dispatch = useSafeDispatch(unsafeDispatch)
 
   const run = React.useCallback((promise) => {
     dispatch({type: 'pending'})
@@ -56,7 +59,7 @@ function useAsync(initialState) {
       data => dispatch({type: 'resolved', data}),
       error => dispatch({type: 'rejected', error}),
     )
-  }, [])
+  }, [dispatch])
 
   return {...state, run}
 }
